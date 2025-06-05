@@ -706,48 +706,299 @@ Done .......... (dots continue)
 ### Output:
 ![Alt text](images/26.png)
 
-## 16. Retargeting _write for printf to UART
 
-This section explains how to retarget the `_write` function so that `printf` sends bytes to a memory-mapped UART at `0x10000000`.
+# 16. Retargeting _write for printf to UART
 
-### Purpose:
-To redirect `printf` output to a custom UART hardware in a bare-metal RISC-V environment. The `_write` function is a low-level I/O hook used by the C standard library.
+To retarget `printf` to send bytes to a memory-mapped UART at `0x10000000` (with status register at `0x10000005`, bit 5 for TX ready) in a bare-metal RISC-V environment, implement a custom `_write` function. This function is a low-level I/O hook used by the C standard library (e.g., newlib) to handle output.
 
-### The printf Output Chain:
-- `printf` (High-Level Formatting): Handles formatting (e.g., "Hello, %s!").
-- Calls `fputc` (or similar): Processes each character.
-- Calls `_write` (Low-Level Hook): This is the function to be customized.
-- Custom `_write` Implementation: Interacts with the specific UART hardware (e.g., writing to `0x10000000` after checking a status register at `0x10000005`, bit 5 for TX ready).
+## The printf Output Chain
+1. `printf`: Formats strings and variables into raw bytes.
+2. `fputc`/`fputs`: Passes characters to file streams (e.g., `stdout`).
+3. `_write`: Performs the physical output to hardware.
 
-### Example _write Implementation:
+## Role of _write
+Newlib provides a weak `_write` implementation. By defining your own `_write`, you override it to direct `printf` output to the UART.
+
+## _write Signature
+```c
+int _write(int file, char *ptr, int len);
+```
+- `file`: File descriptor (1 for `stdout`, 2 for `stderr`).
+- `ptr`: Buffer containing bytes to send.
+- `len`: Number of bytes to send.
+- Returns: Number of bytes written or -1 on error.
+
+## Implementation
 ```c
 #include <stdint.h>
-#include <unistd.h> // For ssize_t, size_t
+#include <unistd.h>
 
-// Memory-mapped UART Data Register
 volatile uint32_t *const UART_DR = (volatile uint32_t *)0x10000000;
-// Memory-mapped UART Status Register (assuming bit 5 is TX_READY)
 volatile uint32_t *const UART_SR = (volatile uint32_t *)0x10000005;
-
 #define UART_SR_TX_READY (1 << 5)
 
-// _write function for newlib
 ssize_t _write(int file, const void *ptr, size_t len) {
-    // Only handle stdout and stderr
     if (file == STDOUT_FILENO || file == STDERR_FILENO) {
         const char *buf = (const char *)ptr;
         for (size_t i = 0; i < len; ++i) {
-            // Wait until UART is ready to transmit
-            while (!(*UART_SR & UART_SR_TX_READY)); // Polling for TX ready
-            *UART_DR = buf[i]; // Write character to UART data register
+            while (!(*UART_SR & UART_SR_TX_READY));
+            *UART_DR = buf[i];
         }
-        return len; // Indicate success by returning the number of bytes written
+        return len;
     }
-    return -1; // Indicate error for other file descriptors
+    return -1;
 }
 ```
 
-By implementing `_write` this way, any call to `printf` will direct its output characters to the specified memory-mapped UART register.
+## Note
+For full `printf` support, `_read` and `_sbrk` implementations may also be needed.
+
+# Verifying RV32 Endianness with a Union Trick
+
+RV32 is little-endian by default in most RISC-V implementations (e.g., QEMU `virt`). This section verifies byte ordering using a union trick in C.
+
+## Code (main.c)
+```c
+#include <stdint.h>
+#include <stdio.h>
+
+volatile uint32_t *const UART_DR = (volatile uint32_t *)0x10000000;
+volatile uint32_t *const UART_SR = (volatile uint32_t *)0x10000005;
+#define UART_SR_TX_READY (1 << 5)
+
+ssize_t _write(int file, const void *ptr, size_t len) {
+    if (file == STDOUT_FILENO || file == STDERR_FILENO) {
+        const char *buf = (const char *)ptr;
+        for (size_t i = 0; i < len; ++i) {
+            while (!(*UART_SR & UART_SR_TX_READY));
+            *UART_DR = buf[i];
+        }
+        return len;
+    }
+    return -1;
+}
+
+int main() {
+    union {
+        uint32_t value;
+        uint8_t bytes[4];
+    } endian_test;
+
+    endian_test.value = 0x01020304;
+
+    printf("Byte order:\n");
+    for (int i = 0; i < 4; i++) {
+        printf("Byte %d: 0x%02x\n", i, endian_test.bytes[i]);
+    }
+
+    if (endian_test.bytes[0] == 0x04) {
+        printf("Little-Endian\n");
+    } else {
+        printf("Big-Endian\n");
+    }
+
+    return 0;
+}
+
+void _start() {
+    main();
+    while (1);
+}
+```
+
+## Compile and Run
+1. Save `main.c`, `startup.s`:
+   ```assembly
+   .section .text
+   .global _start
+   _start:
+       j main
+   ```
+   and `linker.ld`:
+   ```ld
+   ENTRY(_start)
+   SECTIONS {
+       . = 0x80000000;
+       .text : { *(.text*) }
+       .data : { *(.data*) }
+       .bss : { *(.bss*) *(COMMON) }
+   }
+   ```
+2. Compile:
+   ```bash
+   riscv-none-elf-gcc -c main.c -o main.o -march=rv32imac -mabi=ilp32 -Os
+   riscv-none-elf-gcc -c startup.s -o startup.o -march=rv32imac -mabi=ilp32
+   riscv-none-elf-gcc -o output.elf main.o startup.o -T linker.ld -nostdlib -nostartfiles -march=rv32imac -mabi=ilp32 -lc -lgcc
+   ```
+3. Run in QEMU:
+   ```bash
+   qemu-system-riscv32 -M virt -kernel output.elf -nographic -bios none
+   ```
+
+## Expected Output
+```
+Byte order:
+Byte 0: 0x04
+Byte 1: 0x03
+Byte 2: 0x02
+Byte 3: 0x01
+Little-Endian
+```
+
+*Note: Replace with actual screenshot of QEMU output.*
+```
+
+### Instructions to Download the File:
+1. **Copy the Content**: Copy the markdown content above.
+2. **Save as a File**:
+   - Open a text editor (e.g., Notepad, VS Code).
+   - Paste the content.
+   - Save with a `.md` extension, e.g., `riscv_sections_16_17.md`.
+3. **Terminal Method**:
+   - On Unix-like systems:
+     ```bash
+     nano riscv_sections_16_17.md
+     ```
+   - Paste the content, save (Ctrl+O, Enter, Ctrl+X).
+4. **Python Script**:
+   - Use this script to generate the file:
+     <xaiArtifact artifact_id="7ba52cad-bad5-4078-a8c5-68e19256ecbc" artifact_version_id="c0f879ed-e4f6-4e4d-a0dd-684cea4c82fa" title="generate_sections_16_17.py" contentType="text/python">
+     ```python
+     with open("riscv_sections_16_17.md", "w") as f:
+         f.write("""# Retargeting _write for printf to UART
+
+To retarget `printf` to send bytes to a memory-mapped UART at `0x10000000` (with status register at `0x10000005`, bit 5 for TX ready) in a bare-metal RISC-V environment, implement a custom `_write` function. This function is a low-level I/O hook used by the C standard library (e.g., newlib) to handle output.
+
+## The printf Output Chain
+1. `printf`: Formats strings and variables into raw bytes.
+2. `fputc`/`fputs`: Passes characters to file streams (e.g., `stdout`).
+3. `_write`: Performs the physical output to hardware.
+
+## Role of _write
+Newlib provides a weak `_write` implementation. By defining your own `_write`, you override it to direct `printf` output to the UART.
+
+## _write Signature
+```c
+int _write(int file, char *ptr, int len);
+```
+- `file`: File descriptor (1 for `stdout`, 2 for `stderr`).
+- `ptr`: Buffer containing bytes to send.
+- `len`: Number of bytes to send.
+- Returns: Number of bytes written or -1 on error.
+
+## Implementation
+```c
+#include <stdint.h>
+#include <unistd.h>
+
+volatile uint32_t *const UART_DR = (volatile uint32_t *)0x10000000;
+volatile uint32_t *const UART_SR = (volatile uint32_t *)0x10000005;
+#define UART_SR_TX_READY (1 << 5)
+
+ssize_t _write(int file, const void *ptr, size_t len) {
+    if (file == STDOUT_FILENO || file == STDERR_FILENO) {
+        const char *buf = (const char *)ptr;
+        for (size_t i = 0; i < len; ++i) {
+            while (!(*UART_SR & UART_SR_TX_READY));
+            *UART_DR = buf[i];
+        }
+        return len;
+    }
+    return -1;
+}
+```
+
+# 17. Verifying RV32 Endianness with a Union Trick
+
+RV32 is little-endian by default in most RISC-V implementations (e.g., QEMU `virt`). This section verifies byte ordering using a union trick in C.
+
+## Code (main.c)
+```c
+#include <stdint.h>
+#include <stdio.h>
+
+volatile uint32_t *const UART_DR = (volatile uint32_t *)0x10000000;
+volatile uint32_t *const UART_SR = (volatile uint32_t *)0x10000005;
+#define UART_SR_TX_READY (1 << 5)
+
+ssize_t _write(int file, const void *ptr, size_t len) {
+    if (file == STDOUT_FILENO || file == STDERR_FILENO) {
+        const char *buf = (const char *)ptr;
+        for (size_t i = 0; i < len; ++i) {
+            while (!(*UART_SR & UART_SR_TX_READY));
+            *UART_DR = buf[i];
+        }
+        return len;
+    }
+    return -1;
+}
+
+int main() {
+    union {
+        uint32_t value;
+        uint8_t bytes[4];
+    } endian_test;
+
+    endian_test.value = 0x01020304;
+
+    printf("Byte order:\n");
+    for (int i = 0; i < 4; i++) {
+        printf("Byte %d: 0x%02x\n", i, endian_test.bytes[i]);
+    }
+
+    if (endian_test.bytes[0] == 0x04) {
+        printf("Little-Endian\n");
+    } else {
+        printf("Big-Endian\n");
+    }
+
+    return 0;
+}
+
+void _start() {
+    main();
+    while (1);
+}
+```
+
+## Compile and Run
+1. Save `main.c`, `startup.s`:
+   ```assembly
+   .section .text
+   .global _start
+   _start:
+       j main
+   ```
+   and `linker.ld`:
+   ```ld
+   ENTRY(_start)
+   SECTIONS {
+       . = 0x80000000;
+       .text : { *(.text*) }
+       .data : { *(.data*) }
+       .bss : { *(.bss*) *(COMMON) }
+   }
+   ```
+2. Compile:
+   ```bash
+   riscv-none-elf-gcc -c main.c -o main.o -march=rv32imac -mabi=ilp32 -Os
+   riscv-none-elf-gcc -c startup.s -o startup.o -march=rv32imac -mabi=ilp32
+   riscv-none-elf-gcc -o output.elf main.o startup.o -T linker.ld -nostdlib -nostartfiles -march=rv32imac -mabi=ilp32 -lc -lgcc
+   ```
+3. Run in QEMU:
+   ```bash
+   qemu-system-riscv32 -M virt -kernel output.elf -nographic -bios none
+   ```
+
+## Expected Output
+```
+Byte order:
+Byte 0: 0x04
+Byte 1: 0x03
+Byte 2: 0x02
+Byte 3: 0x01
+Little-Endian
+```
 
 ### Output:
 ![Alt text](images/27.png)
