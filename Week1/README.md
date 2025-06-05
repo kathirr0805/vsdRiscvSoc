@@ -753,7 +753,7 @@ ssize_t _write(int file, const void *ptr, size_t len) {
 ## Note
 For full `printf` support, `_read` and `_sbrk` implementations may also be needed.
 
-# Verifying RV32 Endianness with a Union Trick
+# 17. Verifying RV32 Endianness with a Union Trick
 
 RV32 is little-endian by default in most RISC-V implementations (e.g., QEMU `virt`). This section verifies byte ordering using a union trick in C.
 
@@ -906,98 +906,6 @@ ssize_t _write(int file, const void *ptr, size_t len) {
     }
     return -1;
 }
-```
-
-# 17. Verifying RV32 Endianness with a Union Trick
-
-RV32 is little-endian by default in most RISC-V implementations (e.g., QEMU `virt`). This section verifies byte ordering using a union trick in C.
-
-## Code (main.c)
-```c
-#include <stdint.h>
-#include <stdio.h>
-
-volatile uint32_t *const UART_DR = (volatile uint32_t *)0x10000000;
-volatile uint32_t *const UART_SR = (volatile uint32_t *)0x10000005;
-#define UART_SR_TX_READY (1 << 5)
-
-ssize_t _write(int file, const void *ptr, size_t len) {
-    if (file == STDOUT_FILENO || file == STDERR_FILENO) {
-        const char *buf = (const char *)ptr;
-        for (size_t i = 0; i < len; ++i) {
-            while (!(*UART_SR & UART_SR_TX_READY));
-            *UART_DR = buf[i];
-        }
-        return len;
-    }
-    return -1;
-}
-
-int main() {
-    union {
-        uint32_t value;
-        uint8_t bytes[4];
-    } endian_test;
-
-    endian_test.value = 0x01020304;
-
-    printf("Byte order:\n");
-    for (int i = 0; i < 4; i++) {
-        printf("Byte %d: 0x%02x\n", i, endian_test.bytes[i]);
-    }
-
-    if (endian_test.bytes[0] == 0x04) {
-        printf("Little-Endian\n");
-    } else {
-        printf("Big-Endian\n");
-    }
-
-    return 0;
-}
-
-void _start() {
-    main();
-    while (1);
-}
-```
-
-## Compile and Run
-1. Save `main.c`, `startup.s`:
-   ```assembly
-   .section .text
-   .global _start
-   _start:
-       j main
-   ```
-   and `linker.ld`:
-   ```ld
-   ENTRY(_start)
-   SECTIONS {
-       . = 0x80000000;
-       .text : { *(.text*) }
-       .data : { *(.data*) }
-       .bss : { *(.bss*) *(COMMON) }
-   }
-   ```
-2. Compile:
-   ```bash
-   riscv-none-elf-gcc -c main.c -o main.o -march=rv32imac -mabi=ilp32 -Os
-   riscv-none-elf-gcc -c startup.s -o startup.o -march=rv32imac -mabi=ilp32
-   riscv-none-elf-gcc -o output.elf main.o startup.o -T linker.ld -nostdlib -nostartfiles -march=rv32imac -mabi=ilp32 -lc -lgcc
-   ```
-3. Run in QEMU:
-   ```bash
-   qemu-system-riscv32 -M virt -kernel output.elf -nographic -bios none
-   ```
-
-## Expected Output
-```
-Byte order:
-Byte 0: 0x04
-Byte 1: 0x03
-Byte 2: 0x02
-Byte 3: 0x01
-Little-Endian
 ```
 
 ### Output:
