@@ -30,7 +30,7 @@ riscv-none-elf-gdb --version
 ```
 
 ### Output:
-The commands successfully returned version information for each tool, confirming they are working correctly.
+![Alt text](images/1.jpg)
 
 *(Placeholder for your screenshot confirming toolchain versions)*
 
