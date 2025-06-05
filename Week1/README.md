@@ -735,6 +735,4 @@ ssize_t _write(int file, const void *ptr, size_t len) {
 
 By implementing `_write` this way, any call to `printf` will direct its output characters to the specified memory-mapped UART register.
 
-### Note:
-A fully functional `printf/scanf` and heap (for `malloc`) would also require `_read` and `_sbrk` implementations.
-```
+
