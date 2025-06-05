@@ -6,4 +6,4 @@ This repository contains materials and exercises for the RISC-V System-on-Chip (
 
 Explore the Week 1 content, covering RISC-V toolchain setup, cross-compilation, assembly analysis, debugging, and UART interaction:
 
-[Week 1 - RISC-V Bare-Metal Toolchain & Debugging](./week1/README.md)
+[Week 1 - RISC-V Bare-Metal Toolchain & Debugging](./Week1/README.md)
