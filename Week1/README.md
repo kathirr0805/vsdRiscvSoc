@@ -30,7 +30,7 @@ riscv-none-elf-gdb --version
 ```
 
 ### Output:
-![Alt text](images/1.jpg)
+![Alt text](images/1.png)
 
 *(Placeholder for your screenshot confirming toolchain versions)*
 
