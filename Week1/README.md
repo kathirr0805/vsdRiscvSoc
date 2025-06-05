@@ -97,7 +97,7 @@ riscv-none-elf-readelf -h hello.elf | grep Entry
 ### Output:
 The output confirmed `_start` in the disassembly and the entry point address.
 
-*(Placeholder for your screenshot of ELF compilation and verification output)*
+![Alt text](images/2.png)
 
 ## 3. Generating .s File and Explaining Prologue/Epilogue
 
@@ -144,7 +144,7 @@ ret                 # Return to caller
 ```
 
 ### Output:
-*(Placeholder for your screenshot of assembly file generation output)*
+![Alt text](images/3.png)
 
 ## 4. Converting ELF to Raw Hex and Disassembly with Objdump
 
@@ -197,7 +197,7 @@ hexdump -C hello.bin
 This outputs hexadecimal and ASCII representations of the binary data.
 
 ### Output:
-*(Placeholder for your screenshot of ELF to hex conversion and objdump output)*
+![Alt text](images/4.png)
 
 ## 5. RV32 Integer Registers and Calling Convention Roles
 
