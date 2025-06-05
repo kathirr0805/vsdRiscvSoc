@@ -98,6 +98,8 @@ riscv-none-elf-readelf -h hello.elf | grep Entry
 The output confirmed `_start` in the disassembly and the entry point address.
 
 ![Alt text](images/2.png)
+![Alt text](images/3.png)
+![Alt text](images/4.png)
 
 ## 3. Generating .s File and Explaining Prologue/Epilogue
 
@@ -144,7 +146,7 @@ ret                 # Return to caller
 ```
 
 ### Output:
-![Alt text](images/3.png)
+![Alt text](images/5.png)
 
 ## 4. Converting ELF to Raw Hex and Disassembly with Objdump
 
@@ -197,7 +199,7 @@ hexdump -C hello.bin
 This outputs hexadecimal and ASCII representations of the binary data.
 
 ### Output:
-![Alt text](images/4.png)
+![Alt text](images/6.png)
 
 ## 5. RV32 Integer Registers and Calling Convention Roles
 
@@ -282,8 +284,10 @@ riscv-none-elf-gdb hello2.elf
 ```
 
 ### Output:
-*(Placeholder for your first screenshot of GDB debugging, showing initial setup and breakpoint)*  
-*(Placeholder for your second screenshot of GDB debugging, showing register inspection)*
+
+![Alt text](images/7.png)
+![Alt text](images/8.png)
+![Alt text](images/9.png)
 
 ## 7. Booting Bare-Metal ELF with QEMU and UART Output
 
@@ -314,8 +318,12 @@ Value of x: 43
 ```
 
 ### Output:
-*(Placeholder for your first screenshot of QEMU UART output)*  
-*(Placeholder for your second screenshot of QEMU UART output)*
+![Alt text](images/10.png)
+![Alt text](images/11.png)
+![Alt text](images/12.png)
+![Alt text](images/13.png)
+![Alt text](images/14.png)
+![Alt text](images/15.png)
 
 ## 8. Compiler Optimization (-O0 vs. -O2) Analysis
 
@@ -392,8 +400,9 @@ Value of x: 43
   - **Why**: `-O0` is designed for debugging. `-O2` prioritizes performance.
 
 ### Output:
-*(Placeholder for your first screenshot comparing -O0 and -O2 ELF/assembly generation)*  
-*(Placeholder for your second screenshot comparing -O0 and -O2 QEMU outputs)*
+![Alt text](images/16.png)
+![Alt text](images/17.png)
+![Alt text](images/18.png)
 
 ## 9. Reading Cycle Counter using Inline Assembly (CSR 0xC00)
 
@@ -452,7 +461,9 @@ __asm__ volatile (
   - **Purpose**: Ensures the `rdcycle` instruction is executed exactly as written.
 
 ### Output:
-*(Placeholder for your screenshot of cycle counter output)*
+![Alt text](images/19.png)
+![Alt text](images/20.png)
+![Alt text](images/21.png)
 
 ## 10. GPIO Register Toggling and Compiler Optimization Prevention
 
@@ -519,7 +530,7 @@ void _start() {
 Using `volatile` ensures that every read and write to `GPIO_REGISTER` is performed and not optimized away by the compiler, critical for interacting with hardware registers.
 
 ### Output:
-*(Placeholder for your screenshot of the GPIO toggling output from QEMU/Spike)*
+![Alt text](images/22.png)
 
 ## 11. Minimal Linker Script with Specific Section Placement
 
@@ -553,6 +564,10 @@ riscv-none-elf-gcc -march=rv32imc -mabi=ilp32 \
 _start.s hello.c -o hello.elf
 ```
 Ensure `_start.s` contains the `_start` label, sets up the stack, and jumps to `main`.
+
+### Output:
+![Alt text](images/23.png)
+![Alt text](images/24.png)
 
 ## 12. Understanding crt0.S in Bare-Metal RISC-V
 
@@ -601,7 +616,8 @@ S A Timer enabled .MTIP .MTIP ... (MTIP every ~1s, dots continue)
 ```
 
 ### Output:
-*(Placeholder for your screenshot of MTIP output)*
+### Output:
+![Alt text](images/25.png)
 
 ## 14. Explanation of the 'A' (Atomic) Extension in RV32IMAC
 
@@ -688,7 +704,7 @@ Done .......... (dots continue)
 ```
 
 ### Output:
-*(Placeholder for your screenshot of the mutex example output)*
+![Alt text](images/26.png)
 
 ## 16. Retargeting _write for printf to UART
 
@@ -732,5 +748,8 @@ ssize_t _write(int file, const void *ptr, size_t len) {
 ```
 
 By implementing `_write` this way, any call to `printf` will direct its output characters to the specified memory-mapped UART register.
+
+### Output:
+![Alt text](images/27.png)
 
 
