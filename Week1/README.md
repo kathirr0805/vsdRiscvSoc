@@ -1,4 +1,3 @@
-```markdown
 # Week 1: RISC-V Bare-Metal Toolchain & Debugging
 
 This document outlines the tasks completed in Week 1 of the RISC-V SoC Lab, focusing on setting up the bare-metal RISC-V toolchain, cross-compiling, analyzing assembly, debugging, and understanding core RISC-V concepts.
@@ -11,7 +10,7 @@ This section details the process of unpacking the xPack RISC-V toolchain, adding
 1. **Download the Toolchain**: Used `wget` to download the `xpack-riscv-none-elf-gcc` archive.
 ```bash
 wget https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v14.2.0-3/xpack-riscv-none-elf-gcc-14.2.0-3-linux-x64.tar.gz
-```
+
 
 2. **Unpack the Archive**: Extracted the contents of the downloaded tarball, creating a folder named `xpack-riscv-none-elf-gcc-14.2.0-3`.
 ```bash
